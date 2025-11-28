@@ -42,7 +42,7 @@ write-host "***********************************************************"
 Log "Find Edge"
 # 1. Find Edge
 $edgePathsToTry = @(
-    "$env:ProgramFiles(x86)\Microsoft\Edge\Application\msedge.exe",
+    "$env:ProgramFiles (x86)\Microsoft\Edge\Application\msedge.exe",
     "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
 )
 
@@ -81,18 +81,45 @@ Start-Sleep -Seconds $maxWaitSeconds
 Log "Close Edge"
 # 5. Close only the Edge processes that this script introduced
 $currentEdge = Get-Process -Name "msedge" -ErrorAction SilentlyContinue
+write $currentedge
 
 if ($currentEdge) {
     # If there were no Edge processes before, we can safely kill them all
     if ($existingIds.Count -eq 0) {
         Write-Verbose "No pre-existing Edge processes; stopping all msedge instances."
-        $currentEdge | Stop-Process -Force -ErrorAction SilentlyContinue
+		foreach ($proc in $currentEdge) {
+			try {
+				# Attempt graceful close
+				if (-not $proc.CloseMainWindow()) {
+					Write-Host "Process ID $($proc.Id) did not respond to close request."
+					$proc | Stop-Process -Force -ErrorAction SilentlyContinue
+				} else {
+					Write-Host "Sent close request to Edge process ID $($proc.Id)."
+				}
+			} catch {
+				Write-Host "Error closing process ID $($proc.Id): $_"
+			}
+		}
+#		$currentEdge | Stop-Process -Force -ErrorAction SilentlyContinue
     } else {
         # Otherwise, only stop the ones that weren't there before
         $newOnes = $currentEdge | Where-Object { $existingIds -notcontains $_.Id }
         if ($newOnes) {
             Write-Verbose "Stopping newly created Edge processes (PIDs: $($newOnes.Id -join ', '))."
-            $newOnes | Stop-Process -Force -ErrorAction SilentlyContinue
+           foreach ($proc in $newones) {
+			try {
+				# Attempt graceful close
+				if (-not $proc.CloseMainWindow()) {
+					Write-Host "Process ID $($proc.Id) did not respond to close request."
+					$proc | Stop-Process -Force -ErrorAction SilentlyContinue
+				} else {
+					Write-Host "Sent close request to Edge process ID $($proc.Id)."
+				}
+			} catch {
+				Write-Host "Error closing process ID $($proc.Id): $_"
+			}
+		   }
+#$newOnes | Stop-Process -Force -ErrorAction SilentlyContinue
         } else {
             Write-Verbose "No new Edge processes to stop."
         }
