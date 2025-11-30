@@ -10,17 +10,18 @@ Version 1.0:  Original version. - Conceto from UPdateOS by Mniehaus, but simplif
 #>
 
 Begin {
-	#Set TimeZone in case it has been changed
-	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/SetTimeZone.ps1").Content
-	#Enhanced Logging function
-	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/Log.ps1").Content
-
     if ("$env:PROCESSOR_ARCHITEW6432" -ne "ARM64") {
         if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe") {
 			& "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy bypass -NoProfile -File "$PSCommandPath" -Reboot $Reboot -RebootTimeout $RebootTimeout
 			Exit $lastexitcode
         }
     }
+
+	#Set TimeZone in case it has been changed
+	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/SetTimeZone.ps1").Content
+	#Enhanced Logging function
+	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/Log.ps1").Content
+
 
     #Create RootFolder as necessary for logging
 	$RootFolder = "$($env:ProgramData)\CVMMPA"
