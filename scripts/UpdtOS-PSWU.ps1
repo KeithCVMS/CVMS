@@ -18,9 +18,9 @@ Begin {
     }
 
 	#Set TimeZone in case it has been changed
-	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/SetTimeZone.ps1").Content
+	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/SetTimeZone.ps1").Content  -UseBasicParsing
 	#Enhanced Logging function
-	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/Log.ps1").Content
+	invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/Log.ps1").Content -UseBasicParsing
 
 
     #Create RootFolder as necessary for logging
