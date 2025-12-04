@@ -8,6 +8,11 @@ Version 1.0:  Original version. - Conceto from UPdateOS by Mniehaus, but simplif
 
 
 #>
+param(
+    # Switch to include W11 25H2 upgrade 
+	[switch] $25H2
+)
+
 
 Begin {
     if ("$env:PROCESSOR_ARCHITEW6432" -ne "ARM64") {
@@ -85,7 +90,12 @@ Process {
 	Log ""
 	Log "=== Installing ALL available updates ==="
 
-	Install-WindowsUpdate -Verbose -AcceptAll -IgnoreReboot
+	if ($25H2) {
+		Install-WindowsUpdate -Verbose -AcceptAll -IgnoreReboot
+	} else {
+		Install-WindowsUpdate -Verbose -NotKBArticleID KB5068861 -AcceptAll -IgnoreReboot
+	}
+
 
 	Log "=== Update scan/install complete ==="
 }
