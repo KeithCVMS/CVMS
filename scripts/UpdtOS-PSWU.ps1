@@ -10,7 +10,7 @@ Version 1.0:  Original version. - Conceto from UPdateOS by Mniehaus, but simplif
 #>
 param(
     # Switch to include W11 25H2 upgrade 
-	[switch] $25H2
+	[switch]$25H2
 )
 
 
