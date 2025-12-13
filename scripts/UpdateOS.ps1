@@ -41,7 +41,7 @@ Version 1.0:  Original published version.
 
 KH changes	added Log function
 added executionpolicy to begin blok
-added switch for feature updates
+added switch to include feature updates
 
 #>
 
@@ -57,25 +57,14 @@ This script uses the Windows Update COM objects to install the latest cumulative
 [CmdletBinding()]
 Param(
     [Parameter(Mandatory = $False)] [ValidateSet('Soft', 'Hard', 'None', 'Delayed')] [String] $Reboot = 'Soft',
-    [Parameter(Mandatory = $False)] [Int32] $RebootTimeout = 120,
+    [Parameter(Mandatory = $False)] [Int32]  $RebootTimeout = 120,
     [Parameter(Mandatory = $False)] [switch] $ExcludeDrivers,
     [Parameter(Mandatory = $False)] [switch] $ExcludeUpdates,
-    [Parameter(Mandatory = $False)] [switch] $ExcludeFeatures
+    [Parameter(Mandatory = $False)] [switch] $IncludeFeatures
 	
 )
 
 Process {
-
-	Function Log() {
-		[CmdletBinding()]
-		param (
-			[Parameter(Mandatory=$false)] [String] $message
-		)
-
-		$tz = [Regex]::Replace([System.TimeZoneInfo]::Local.StandardName, '([A-Z])\w+\s*', '$1')
-		$ts = get-date -f "yyyy/MM/dd hh:mm:ss tt"
-		if ($message) { Write-host "$ts $tz -  $message"} else {write-host ""}
-	}
 
     # If we are running as a 32-bit process on an x64 system, re-launch as a 64-bit process
     $UOSSwitch = ""
@@ -87,10 +76,10 @@ Process {
             if ($ExcludeUpdate) {
                 $UOSSwitch += " -ExcludeUpdates"
 			}
-            if ($ExcludeFeatures) {
-                $UOSSwitch += " -ExcludeFeatures"
+            if ($IncludeFeatures) {
+                $UOSSwitch += " -IncludeFeatures"
 			}
-            & "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy bypass -NoProfile -File "$PSCommandPath" -Reboot $Reboot -RebootTimeout $RebootTimeout " $UOSSwitch"
+            & "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy bypass -NoProfile -File "$PSCommandPath" -Reboot $Reboot -RebootTimeout $RebootTimeout "$UOSSwitch"
             # if ($ExcludeDrivers) {
 				# & "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy bypass -NoProfile -File "$PSCommandPath" -Reboot $Reboot -RebootTimeout $RebootTimeout -ExcludeDrivers
             # } elseif ($ExcludeUpdates) {
@@ -102,34 +91,73 @@ Process {
         }
     }
 
-    # Create a tag file just so Intune knows this was installed
-    if (-not (Test-Path "$($env:ProgramData)\CVMMPA")) {	#KH
-        Mkdir "$($env:ProgramData)\CVMMPA"					#KH
-    }
-    Set-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Start Script $(get-date)"	#KH
+#Custom CVM Code
+		#Set TimeZone in case it has been changed
+		invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/SetTimeZone.ps1" -UseBasicParsing).Content  
+		#Enhanced Logging function
+		invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/Log.ps1" -UseBasicParsing).Content  
 
-    # Start logging
-    Start-Transcript "$($env:ProgramData)\CVMMPA\UpdateOS.log" -Append	#KH
-	Log "*****************************************************"
-	Log "***************UpdateOS 2.1 KH.ps1**************************"
-    Log "********    Rebooot: $Reboot       ****************"
-    Log "********    RebootTimeout: $RebootTimeout       ****************"
-    Log "********    ExcludeDrivers: $ExcludeDrivers     ****************"
-    Log "********    ExcludeUpdates: $ExcludeUpdates        ****************"
-    Log "********    ExcludeFeatures: $ExcludeFeatures        ****************"
-	Log "*****************************************************"
-	Log ""
-	
-	#Set TimeZone
-	Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/public/main/De-Bloat/SetTimeZone.ps1" -OutFile .\SetTimeZone.ps1; .\SetTimeZone.ps1
+		# Create output folder
+		
+		# Get the Current start time in UTC format, so that Time Zone Changes don't affect total runtime calculation
+		$startUtc = [datetime]::UtcNow
+
+		$InstallRoot = "$($env:ProgramData)\CVMMPA"
+		if (-not (Test-Path "$InstallRoot")) {
+			Mkdir "$InstallRoot" -Force
+		}
+		
+		# Start logging
+		Start-Transcript "$InstallRoot\UpdateOS.log" -Append
+		Log ""
+		Log "*****************************************************"
+		Log "********    UpdateOS 2.1 CVM.ps1					  *"
+		Log "********    Rebooot:		  $Reboot       		  *"
+		Log "********    RebootTimeout:   $RebootTimeout       	  *"
+		Log "********    ExcludeDrivers:  $ExcludeDrivers     	  *"
+		Log "********    ExcludeUpdates:  $ExcludeUpdates         *"
+		Log "********    IncludeFeatures: $IncludeFeatures        *"
+		Log "*****************************************************"
+		Log ""
+				
+		#start-sleep -seconds 300
+
+		# Creating tag file
+		    Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Start Install $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+
+		Log "***************************************"
+		Log "Capture local configuration and OS information"
+		#Capture organization from GrpTag.xml so that script can make CVM/MPA decisions
+		[xml]$GrpTag = Get-Content "$InstallRoot\GrpTag.xml" 
+		Log "DevDomain:$($GrpTag.grpTag.DevDomain)"
+		Log "DevGvmt:$($GrpTag.grpTag.DevGvmt)"
+		Log "DevRole:$($GrpTag.grptag.DevRole)"
+		Log "DomRole:$($GrpTag.grpTag.DevDomain)$($GrpTag.grpTag.DevRole)"
+		$UserDomain = $($GrpTag.grpTag.DevDomain)
+		$UserRole = $($GrpTag.grptag.DevRole)
+		$UserDomRole = $userDomain + $UserRole
+		Log "UserDomain:$UserDomain"
+		Log "UserRole:$UserRole"
+		Log "UserDomRole:$UserDomRole"
+		Log ""
+
+		# Capture OsVersion information
+		$ci = Get-Computerinfo
+		$bldnum = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').currentbuildnumber
+		$bldubr = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').ubr
+		$dispver = (Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion').displayversion
+
+		Log "OSversion:$($ci.OsName)"
+		Log "OSBuild: $dispver - $bldnum.$bldubr"
+		Log ""
+#End Custom Code
+
 
     # Main logic
-    $script:needReboot = $false
-
-    $ci = Get-Computerinfo				#KH
-	Log "OSversion:$($ci.OsName)"		#KH
-	Log "OSBuild:$($ci.OsBuildNumber)"	#KH
-	Log " "					#KH
+    log "********************************"
+	Log "Start the real work"
+	Log ""
+	$script:needReboot = $false
 
 	#Now install OS Updates
     # Opt into Microsoft Update
@@ -141,7 +169,7 @@ Process {
     # Install all available updates
     $WUDownloader = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateDownloader()
     $WUInstaller = (New-Object -ComObject Microsoft.Update.Session).CreateUpdateInstaller()
-    if ($ExcludeDrivers) {
+	if ($ExcludeDrivers) {
         # Updates only
 		Log "Exclude Drivers"
         $queries = @("IsInstalled=0 and Type='Software'")
@@ -155,10 +183,10 @@ Process {
 		Log "Include Drivers and Updates"
         $queries = @("IsInstalled=0 and Type='Software'", "IsInstalled=0 and Type='Driver'")
     }
-    if ($ExcludeFeatures) {
-		Log "Exclude Features"
-	} else {
+    if ($IncludeFeatures) {
 		Log "Include Features"
+	} else {
+		Log "Exclude Features"
 	}
 
     $WUUpdates = New-Object -ComObject Microsoft.Update.UpdateColl
@@ -167,12 +195,10 @@ Process {
         try {
             ((New-Object -ComObject Microsoft.Update.Session).CreateupdateSearcher().Search($_)).Updates | ForEach-Object {
                 if (!$_.EulaAccepted) { $_.AcceptEula() }
-                if ($ExcludeFeatures) {
-					$featureUpdate = $_.Categories | Where-Object { $_.CategoryID -eq "3689BDC8-B205-4AF4-8D4A-A63924C5E9D5" }
-				} else {
-					$featureUpdate = 0
-				}
-                if ($featureUpdate) {
+ 
+                $featureUpdate = $_.Categories | Where-Object { $_.CategoryID -eq "3689BDC8-B205-4AF4-8D4A-A63924C5E9D5" }
+
+                if (($featureUpdate) -and (!($IncludeFeatures))) {
                     Log "Skipping feature update: $($_.Title)"
                 } elseif ($_.Title -match "Preview") { 
                     Log "Skipping preview update: $($_.Title)"
@@ -191,6 +217,8 @@ Process {
 
     if ($WUUpdates.Count -eq 0) {
         Log "No Updates Found"
+		Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+		Stop-Transcript
         Exit 0
     } else {
         Log "Updates found: $($WUUpdates.count)"
@@ -232,19 +260,21 @@ Process {
 
         if ($Reboot -eq "Hard") {
             Log " Exiting with return code 1641 to indicate a hard reboot is needed."
-			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date)"	#KH
+			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 			Stop-Transcript
             Exit 1641
         }
         elseif ($Reboot -eq "Soft") {
             Log " Exiting with return code 3010 to indicate a soft reboot is needed."
-			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date)"	#KH
+			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 			Stop-Transcript
             Exit 3010
         }
         elseif ($Reboot -eq "Delayed") {
             Log " Rebooting with a $RebootTimeout second delay"
             & shutdown.exe /r /t $RebootTimeout /c "Rebooting to complete the installation of Windows updates."
+			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+			Stop-Transcript
             Exit 0
         }    
     }
@@ -252,9 +282,18 @@ Process {
         Log " Windows Update indicated that no reboot is required."
     }
 
-	#Set TimeZone
-	Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/public/main/De-Bloat/SetTimeZone.ps1" -OutFile .\SetTimeZone.ps1; .\SetTimeZone.ps1
 
-	Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date)"	#KH
+	$stopUtc = [datetime]::UtcNow
+	$runTime = $stopUTC - $startUTC
+	# Format the runtime with hours, minutes, and seconds
+	$runTimeFormatted = 'Duration: {0:hh} hr {0:mm} min {0:ss} sec' -f $runTime
+	Log "************************************************"
+	Log "*    UpdateOS Complete"
+	Log "*   Total Script Time: $($runTimeFormatted)"
+	Log "************************************************"
+	
+	Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 	Stop-Transcript
+	
+	exit 0
 }
