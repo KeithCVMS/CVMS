@@ -123,7 +123,7 @@ Process {
 		#start-sleep -seconds 300
 
 		# Creating tag file
-		    Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Start Install $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+		    $scriptstart = "Started Install $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 
 		Log "***************************************"
 		Log "Capture local configuration and OS information"
@@ -292,7 +292,9 @@ Process {
 	Log "*   Total Script Time: $($runTimeFormatted)"
 	Log "************************************************"
 	
-	Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+	Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "$scriptstart"
+	Add-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+
 	Stop-Transcript
 	
 	exit 0
