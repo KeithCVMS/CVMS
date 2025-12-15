@@ -260,28 +260,55 @@ Process {
 
         if ($Reboot -eq "Hard") {
             Log " Exiting with return code 1641 to indicate a hard reboot is needed."
-			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+			$stopUtc = [datetime]::UtcNow
+			$runTime = $stopUTC - $startUTC
+			# Format the runtime with hours, minutes, and seconds
+			$runTimeFormatted = 'Duration: {0:hh} hr {0:mm} min {0:ss} sec' -f $runTime
+			Log "************************************************"
+			Log "*    UpdateOS Complete"
+			Log "*   Total Script Time: $($runTimeFormatted)"
+			Log "************************************************"
+			Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "$scriptstart"
+			Add-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Finish Script EXITING 1641 $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 			Stop-Transcript
             Exit 1641
         }
         elseif ($Reboot -eq "Soft") {
             Log " Exiting with return code 3010 to indicate a soft reboot is needed."
-			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+			$stopUtc = [datetime]::UtcNow
+			$runTime = $stopUTC - $startUTC
+			# Format the runtime with hours, minutes, and seconds
+			$runTimeFormatted = 'Duration: {0:hh} hr {0:mm} min {0:ss} sec' -f $runTime
+			Log "************************************************"
+			Log "*    UpdateOS Complete"
+			Log "*   Total Script Time: $($runTimeFormatted)"
+			Log "************************************************"
+			Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "$scriptstart"
+			Add-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Finish Script EXITING 3010 $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 			Stop-Transcript
             Exit 3010
         }
         elseif ($Reboot -eq "Delayed") {
             Log " Rebooting with a $RebootTimeout second delay"
-            & shutdown.exe /r /t $RebootTimeout /c "Rebooting to complete the installation of Windows updates."
-			Add-Content -Path "$($env:ProgramData)\CVMMPA\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+			$stopUtc = [datetime]::UtcNow
+			$runTime = $stopUTC - $startUTC
+			# Format the runtime with hours, minutes, and seconds
+			$runTimeFormatted = 'Duration: {0:hh} hr {0:mm} min {0:ss} sec' -f $runTime
+			Log "************************************************"
+			Log "*    UpdateOS Complete"
+			Log "*   Total Script Time: $($runTimeFormatted)"
+			Log "************************************************"
+			Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "$scriptstart"
+			Add-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Finish Script EXITING 0-DELAYED $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 			Stop-Transcript
+            & shutdown.exe /r /t $RebootTimeout /c "Rebooting to complete the installation of Windows updates."
             Exit 0
         }    
     }
     else {
         Log " Windows Update indicated that no reboot is required."
     }
-
+ 
 
 	$stopUtc = [datetime]::UtcNow
 	$runTime = $stopUTC - $startUTC
@@ -293,7 +320,7 @@ Process {
 	Log "************************************************"
 	
 	Set-Content -Path "$InstallRoot\UpdateOS.tag" -Value "$scriptstart"
-	Add-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Finish Script $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+	Add-Content -Path "$InstallRoot\UpdateOS.tag" -Value "Finish Script EXITING 0$(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 
 	Stop-Transcript
 	
