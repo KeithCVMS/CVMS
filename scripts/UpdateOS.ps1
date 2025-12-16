@@ -60,7 +60,8 @@ Param(
     [Parameter(Mandatory = $False)] [Int32]  $RebootTimeout = 120,
     [Parameter(Mandatory = $False)] [switch] $ExcludeDrivers,
     [Parameter(Mandatory = $False)] [switch] $ExcludeUpdates,
-    [Parameter(Mandatory = $False)] [switch] $IncludeFeatures
+    [Parameter(Mandatory = $False)] [switch] $IncludeFeatures,
+	[Parameter(Mandatory = $False)] [Switch] $Force = $false
 	
 )
 
@@ -112,18 +113,44 @@ Process {
 		Log ""
 		Log "*****************************************************"
 		Log "********    UpdateOS 2.1 CVM.ps1					  *"
-		Log "********    Rebooot:		  $Reboot       		  *"
-		Log "********    RebootTimeout:   $RebootTimeout       	  *"
-		Log "********    ExcludeDrivers:  $ExcludeDrivers     	  *"
-		Log "********    ExcludeUpdates:  $ExcludeUpdates         *"
-		Log "********    IncludeFeatures: $IncludeFeatures        *"
+		Log "*****************************************************"
+		Log "********    Rebooot:		  $Reboot       		 *"
+		Log "********    RebootTimeout:   $RebootTimeout       	 *"
+		Log "********    ExcludeDrivers:  $ExcludeDrivers     	 *"
+		Log "********    ExcludeUpdates:  $ExcludeUpdates        *"
+		Log "********    IncludeFeatures: $IncludeFeatures       *"
+		Log "********    Force: 		  $Force                 *"
 		Log "*****************************************************"
 		Log ""
-				
-		#start-sleep -seconds 300
 
-		# Creating tag file
-		    $scriptstart = "Started Install $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
+# STEP 0: Check if we are in OOBE
+$TypeDef = @"
+using System;
+using System.Text;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+ 
+namespace Api
+{
+ public class Kernel32
+ {
+   [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+   public static extern int OOBEComplete(ref int bIsOOBEComplete);
+ }
+}
+"@
+		Add-Type -TypeDefinition $TypeDef -Language CSharp
+		$IsOOBEComplete = $false
+		$null = [Api.Kernel32]::OOBEComplete([ref] $IsOOBEComplete)
+		if ($IsOOBEComplete) {
+			if (-not $Force) {
+				#wait for 5 minutes to be sure all other OOBE config is complete
+				start-sleep -seconds 300
+			}
+		}
+
+		# Capture start time for tag file
+		$scriptstart = "Started Install $(get-date -f ""yyyy/MM/dd hh:mm:ss tt"") $($(Get-TimeZone).Id)"
 
 		Log "***************************************"
 		Log "Capture local configuration and OS information"
