@@ -4,11 +4,9 @@
 $ErrorActionPreference = 'Stop'
 
 # If we are running as a 32-bit process on an x64 system, re-launch as a 64-bit process
-if ("$env:PROCESSOR_ARCHITEW6432" -ne "ARM64") {
-	if (Test-Path "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe") {
-		& "$($env:WINDIR)\SysNative\WindowsPowerShell\v1.0\powershell.exe" -ExecutionPolicy bypass -NoProfile -File "$PSCommandPath" -Reboot $Reboot -RebootTimeout $RebootTimeout
-		Exit $lastexitcode
-	}
+if ($env:PROCESSOR_ARCHITEW6432 -and (Test-Path "$env:WINDIR\SysNative\WindowsPowerShell\v1.0\powershell.exe")) {
+    & "$env:WINDIR\SysNative\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File $PSCommandPath
+    exit $LASTEXITCODE
 }
 
 #Set TimeZone in case it has been changed
@@ -17,23 +15,20 @@ invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/Kei
 invoke-expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/KeithCVMS/CVMS/main/scripts/Log.ps1" -UseBasicParsing).Content  
 
 $installFolder = "$PSScriptRoot\"
-Log "Install folder: $installFolder"
 Set-Location -LiteralPath $PSScriptRoot
 
 #Check for Root folder
 $RootFolder = "$($Env:Programdata)\CVMMPA"
 If (!(Test-Path $RootFolder)) {
 		New-Item -Path "$RootFolder" -ItemType Directory
-	Log "The folder $RootFolder was successfully created."
 }
 
 Start-Transcript -Path "$RootFolder\InstallPS7.log" -Append
 Log ""
 Log "******************************************************************************"
 Log "                     InstallPS7 "
-Log "******************************************************************************"
-Log ""
-Log ""
+Log "*           Install folder: $installFolder"
+Log "*           RootFolder:     $RootFolder"
 Log "******************************************************************************"
 Log ""
 
@@ -90,13 +85,11 @@ Invoke-WebRequest -uri $VCppRedistributable_Url -outfile $VCppRedistributable_Pa
 Start-Process -FilePath $VCppRedistributable_Path -ArgumentList "/install", "/quiet", "/norestart" -Wait
 
 #Look for Winget.exe in the C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_* Folder
-$WinGetResolve = Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe\winget.exe"
-Log "WinGetResolve: $WinGetResolve"
-$WinGetExe = $WinGetResolve[-1].Path
-Log "WinGetExe: $WinGetExe"
+$WinGetExe = (Resolve-Path "C:\Program Files\WindowsApps\Microsoft.DesktopAppInstaller_*__8wekyb3d8bbwe\winget.exe" |
+    Sort-Object Path |
+    Select-Object -Last 1).Path
 $WinGetVer = & "$WinGetExe" --version
-Log "WinGetVer: $WingetVer"
-Log "Winget version is: $WinGetVer"
+Log "WinGet version is: $WinGetVer"
 
 Log "Using WinGet at: $WinGetExe"
 		
@@ -108,7 +101,13 @@ Log "PwshPath: $PwshPath"
 
 # Install PS7 (machine scope, silent)
 Log "Installing PowerShell 7..."
-& "$WinGetExe" install Microsoft.PowerShell --scope machine --source winget --accept-package-agreements --accept-source-agreements --silent
+& "$WinGetExe" install Microsoft.PowerShell `
+	--exact `
+	--scope machine `
+	--source winget `
+	--accept-package-agreements `
+	--accept-source-agreements `
+	--silent
 
 Log "Sleep 5 seconds"
 Start-Sleep -Seconds 5
@@ -141,13 +140,15 @@ Invoke-WebRequest -uri $ScriptUrl -outfile $TaskScript -UseBasicParsing
 #Copy-Item -Path (Join-Path $PSScriptRoot 'set-default-terminal.ps1') -Destination $TaskScript -Force
 
 Log "Creating scheduled task: $TaskName"
-$Action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$TaskScript`""
+$Action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$TaskScript`" -TaskName `"$TaskName`""
 $Trigger = New-ScheduledTaskTrigger -AtLogOn
+$Trigger.Delay = 'PT30S'
 $Principal = New-ScheduledTaskPrincipal -GroupId 'BUILTIN\Users' -RunLevel Limited
 
 # Replace if exists
 Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
-Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal | Out-Null
+$Settings = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Settings $Settings -Force
 
 # Calculate the total run time
 $stopUtc = [datetime]::UtcNow
