@@ -1,12 +1,39 @@
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
-Function Log() {
-	[CmdletBinding()]
-	param ( [Parameter(Mandatory=$false)] [String] $message )
+function Log {
+    [CmdletBinding()]
+    param(
+        [Parameter(Position=0)]
+        [AllowNull()]
+        [AllowEmptyString()]
+        [string]$Message = '',
 
-	$ts = get-date -f "yyyy/MM/dd hh:mm:ss tt"
-	$tz = [Regex]::Replace([System.TimeZoneInfo]::Local.StandardName, '([A-Z])\w+\s*', '$1')
-	$et = " TET: $($sw.Elapsed.ToString('hh\:mm\:ss'))"
-	$fts = "$ts $tz "
-	if ($message) { Write-Output "$($ts) $($tz): $message @$et"} else {write-output ""}
+        [ValidateSet('INFO','WARN','ERROR')]
+        [string]$Level = 'INFO',
+
+        [switch]$NoTimestamp
+    )
+
+    # Support blank line logging cleanly
+    if ([string]::IsNullOrEmpty($Message)) {
+        if ($script:LogFile) {
+            try { Add-Content -LiteralPath $script:LogFile -Value '' -Encoding UTF8 } catch {}
+        }
+        Write-Host ''
+        return
+    }
+
+    $timestamp = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss')
+    $line = if ($NoTimestamp) {
+        $Message
+    } else {
+        "[$timestamp] [$Level] $Message"
+    }
+
+    if ($script:LogFile) {
+        try { Add-Content -LiteralPath $script:LogFile -Value $line -Encoding UTF8 } catch {}
+    }
+
+    # IMPORTANT: no Write-Output
+    Write-Host $line
 }
