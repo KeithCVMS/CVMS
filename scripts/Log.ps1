@@ -1,12 +1,15 @@
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 
 function Log {
-    [CmdletBinding()]
+
+[CmdletBinding()]
     param(
-        [Parameter(Position=0)]
+        # Accept strings from pipeline, arrays by parameter, and bind by property name
+        [Parameter(Position=0, ValueFromPipeline, ValueFromPipelineByPropertyName)]
+        [Alias('Text','Msg')]
         [AllowNull()]
         [AllowEmptyString()]
-        [string]$Message = '',
+        [string[]]$Message = @(),
 
         [ValidateSet('INFO','WARN','ERROR')]
         [string]$Level = 'INFO',
@@ -37,3 +40,4 @@ function Log {
     # IMPORTANT: no Write-Output
     Write-Host $line
 }
+
